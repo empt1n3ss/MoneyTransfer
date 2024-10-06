@@ -1,5 +1,7 @@
 package org.example.controller;
 
+import org.example.dto.ConfirmationResponseDTO;
+import org.example.dto.TransferResponseDTO;
 import org.example.model.ConfirmOperationException;
 import org.example.model.ConfirmOperationRequest;
 import org.example.model.TransferException;
@@ -41,14 +43,15 @@ class MoneyControllerTest {
         request.setCardToNumber("8765432187654321");
         request.setAmount(amount);
 
-        String expectedOperationId = "operationId123";
-        when(service.processTransfer(any(TransferRequest.class))).thenReturn(expectedOperationId);
+        TransferResponseDTO expectedResponse = new TransferResponseDTO("operationId123", "SUCCESS", null);
+        when(service.processTransfer(any(TransferRequest.class))).thenReturn(expectedResponse);
 
         ResponseEntity<?> response = controller.transfer(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(expectedOperationId, ((Map<String, String>) response.getBody()).get("operationId"));
+        assertEquals(expectedResponse.getOperationId(), ((TransferResponseDTO) response.getBody()).getOperationId());
     }
+
 
     @Test
     void transfer_shouldReturnError_whenTransferFails() {
@@ -67,8 +70,8 @@ class MoneyControllerTest {
 
         ResponseEntity<?> response = controller.transfer(request);
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("Transfer failed", ((Map<String, String>) response.getBody()).get("message"));
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("Transfer failed", ((TransferResponseDTO) response.getBody()).getMessage());
     }
 
     @Test
@@ -77,13 +80,13 @@ class MoneyControllerTest {
         request.setOperationId("operationId123");
         request.setCode("0000");
 
-        String expectedOperationId = "confirmationId123";
-        when(service.processConfirmation(any(ConfirmOperationRequest.class))).thenReturn(expectedOperationId);
+        ConfirmationResponseDTO expectedResponse = new ConfirmationResponseDTO("confirmationId123", "SUCCESS");
+        when(service.processConfirmation(any(ConfirmOperationRequest.class))).thenReturn(expectedResponse);
 
         ResponseEntity<?> response = controller.confirmOperation(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(expectedOperationId, ((Map<String, String>) response.getBody()).get("operationId"));
+        assertEquals(expectedResponse.getOperationId(), ((ConfirmationResponseDTO) response.getBody()).getOperationId());
     }
 
     @Test
@@ -92,11 +95,12 @@ class MoneyControllerTest {
         request.setOperationId("operationId123");
         request.setCode("0000");
 
-        when(service.processConfirmation(any(ConfirmOperationRequest.class))).thenThrow(new ConfirmOperationException("Confirmation failed"));
+        when(service.processConfirmation(any(ConfirmOperationRequest.class)))
+                .thenThrow(new ConfirmOperationException("FAILURE"));
 
         ResponseEntity<?> response = controller.confirmOperation(request);
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("Confirmation failed", ((Map<String, String>) response.getBody()).get("message"));
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("FAILURE", ((ConfirmationResponseDTO) response.getBody()).getStatus());
     }
 }

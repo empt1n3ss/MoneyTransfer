@@ -1,6 +1,9 @@
 package org.example.controller;
 
 
+import org.example.dto.ConfirmationResponseDTO;
+import org.example.dto.ErrorResponseDTO;
+import org.example.dto.TransferResponseDTO;
 import org.example.model.ConfirmOperationException;
 import org.example.model.ConfirmOperationRequest;
 import org.example.model.TransferException;
@@ -12,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import jakarta.validation.Valid;
@@ -28,40 +30,27 @@ public class MoneyController {
 
     @PostMapping("/transfer")
     public ResponseEntity<?> transfer(@Valid @RequestBody TransferRequest transferRequest) {
+        String status;
         try {
-            String operationId = service.processTransfer(transferRequest);
-
-            return ResponseEntity.ok(
-                    Map.of(
-                            "operationId", operationId
-                    )
-            );
+            TransferResponseDTO response = service.processTransfer(transferRequest);
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (TransferException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    Map.of(
-                            "message", e.getMessage(),
-                            "id", 500
-                    )
-            );
+            status = "FAILURE";
+            TransferResponseDTO errorResponse = new TransferResponseDTO(null, status, e.getMessage());
+            return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
         }
     }
 
     @PostMapping("/confirmOperation")
     public ResponseEntity<?> confirmOperation(@Valid @RequestBody ConfirmOperationRequest confirmOperationRequest) {
+        String status;
         try {
-            String operationId = service.processConfirmation(confirmOperationRequest);
-            return ResponseEntity.ok(
-                    Map.of(
-                            "operationId", operationId
-                    )
-            );
+            ConfirmationResponseDTO response = service.processConfirmation(confirmOperationRequest);
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (ConfirmOperationException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    Map.of(
-                            "message", e.getMessage(),
-                            "id", 500
-                    )
-            );
+            status = "FAILURE";
+            ConfirmationResponseDTO errorResponse = new ConfirmationResponseDTO(confirmOperationRequest.getOperationId(), status);
+            return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -73,12 +62,9 @@ public class MoneyController {
                 .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
                 .collect(Collectors.joining(", "));
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                Map.of(
-                        "message", errorMessage,
-                        "id", 400
-                )
-        );
+        ErrorResponseDTO errorResponse = new ErrorResponseDTO(errorMessage, 400);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 }
 
